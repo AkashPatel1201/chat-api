@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { SsoProvider } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -249,6 +250,81 @@ export class AuthService {
     return {
       success: true,
       message: `Unlinked ${providerName} successfully`,
+    };
+  }
+
+  async register(
+    dto: { email: string; password: string; name?: string },
+    meta?: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthResult> {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existing) {
+      throw new BadRequestException('User with this email already exists');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.password, salt);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        name: dto.name?.trim() || null,
+        passwordHash,
+        emailVerified: false,
+      },
+    });
+
+    const sessionTokens = await this.createSession(user.id, meta);
+
+    return {
+      ...sessionTokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+      },
+    };
+  }
+
+  async login(
+    dto: { email: string; password: string },
+    meta?: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthResult> {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('This account has been deactivated');
+    }
+
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const sessionTokens = await this.createSession(user.id, meta);
+
+    return {
+      ...sessionTokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+      },
     };
   }
 

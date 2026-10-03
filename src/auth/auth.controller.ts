@@ -29,6 +29,8 @@ import { CurrentUser } from './decorators/current-user.decorator.js';
 import { SsoExchangeDto } from './dto/sso-exchange.dto.js';
 import { SsoVerifyTokenDto } from './dto/sso-verify-token.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
+import { LoginDto } from './dto/login.dto.js';
 
 @ApiTags('Authentication & Multi-SSO')
 @Controller('auth')
@@ -37,6 +39,46 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly ssoService: SsoService,
   ) {}
+
+  /**
+   * Register with Email and Password
+   */
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register with Email and Password',
+    description: 'Creates a new user account with hashed password and generates session JWT tokens.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered and session tokens created',
+  })
+  @ApiResponse({ status: 400, description: 'Email already exists or invalid payload' })
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
+    const userAgent = req.headers['user-agent'];
+    const ipAddress = req.ip;
+    return this.authService.register(dto, { userAgent, ipAddress });
+  }
+
+  /**
+   * Login with Email and Password
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Login with Email and Password',
+    description: 'Authenticates user with email and password and returns session JWT tokens.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Authentication successful',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid email or password' })
+  async login(@Body() dto: LoginDto, @Req() req: Request) {
+    const userAgent = req.headers['user-agent'];
+    const ipAddress = req.ip;
+    return this.authService.login(dto, { userAgent, ipAddress });
+  }
 
   /**
    * List all configured SSO providers and their availability
