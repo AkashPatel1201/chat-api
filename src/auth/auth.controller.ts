@@ -135,6 +135,7 @@ export class AuthController {
       provider: providerId,
       url,
       state,
+      clientId: provider.clientId,
     };
   }
 

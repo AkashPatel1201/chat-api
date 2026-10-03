@@ -20,7 +20,7 @@ export class GithubSsoProvider implements ISsoProvider {
     );
   }
 
-  private get clientId(): string {
+  get clientId(): string {
     return process.env.GITHUB_CLIENT_ID || '';
   }
 

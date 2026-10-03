@@ -25,7 +25,7 @@ export class GenericOidcSsoProvider implements ISsoProvider {
     return (process.env.OIDC_ISSUER_URL || '').replace(/\/$/, '');
   }
 
-  private get clientId(): string {
+  get clientId(): string {
     return process.env.OIDC_CLIENT_ID || '';
   }
 

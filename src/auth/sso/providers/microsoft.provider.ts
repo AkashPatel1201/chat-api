@@ -20,7 +20,7 @@ export class MicrosoftSsoProvider implements ISsoProvider {
     );
   }
 
-  private get clientId(): string {
+  get clientId(): string {
     return process.env.MICROSOFT_CLIENT_ID || '';
   }
 

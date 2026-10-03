@@ -32,6 +32,7 @@ export interface ISsoProvider {
   readonly name: string;
   readonly icon: string;
   readonly isEnabled: boolean;
+  readonly clientId?: string;
 
   getAuthorizationUrl(state: string, redirectUri?: string): string;
   exchangeCode(

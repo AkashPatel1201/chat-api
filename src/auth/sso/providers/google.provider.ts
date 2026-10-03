@@ -21,7 +21,7 @@ export class GoogleSsoProvider implements ISsoProvider {
     );
   }
 
-  private get clientId(): string {
+  get clientId(): string {
     return process.env.GOOGLE_CLIENT_ID || '';
   }
 
