@@ -128,14 +128,16 @@ export class AuthController {
     @Query('redirectUri') redirectUri?: string,
   ) {
     const provider = this.ssoService.getProvider(providerId);
-    const state = this.ssoService.generateState(providerId, redirectUri);
-    const url = provider.getAuthorizationUrl(state, redirectUri);
+    const effectiveRedirectUri = redirectUri || provider.callbackUrl;
+    const state = this.ssoService.generateState(providerId, effectiveRedirectUri);
+    const url = provider.getAuthorizationUrl(state, effectiveRedirectUri);
 
     return {
       provider: providerId,
       url,
       state,
       clientId: provider.clientId,
+      redirectUri: effectiveRedirectUri,
     };
   }
 
@@ -165,8 +167,9 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const provider = this.ssoService.getProvider(providerId);
-    const state = this.ssoService.generateState(providerId, redirectUri);
-    const url = provider.getAuthorizationUrl(state, redirectUri);
+    const effectiveRedirectUri = redirectUri || provider.callbackUrl;
+    const state = this.ssoService.generateState(providerId, effectiveRedirectUri);
+    const url = provider.getAuthorizationUrl(state, effectiveRedirectUri);
     return res.redirect(url);
   }
 
@@ -198,41 +201,78 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    const frontendUrl = process.env.FRONTEND_URL;
+    const queryError = req.query.error as string | undefined;
+    const errorDescription = req.query.error_description as string | undefined;
+
+    if (queryError) {
+      if (frontendUrl) {
+        const errorUrl = new URL(`${frontendUrl}/auth/sso/${providerId}/callback`);
+        errorUrl.searchParams.set('error', queryError);
+        if (errorDescription) {
+          errorUrl.searchParams.set('error_description', errorDescription);
+        }
+        return res.redirect(errorUrl.toString());
+      }
+      throw new BadRequestException(errorDescription || queryError);
+    }
+
     if (!code) {
       throw new BadRequestException('Authorization code is missing');
     }
 
     let redirectUri: string | undefined;
     if (state) {
-      const stateData = this.ssoService.verifyState(state);
-      redirectUri = stateData.redirectUri;
+      try {
+        const stateData = this.ssoService.verifyState(state);
+        redirectUri = stateData.redirectUri;
+      } catch {
+        // Fall back to provider default if state could not be verified
+      }
+    }
+    if (!redirectUri) {
+      const provider = this.ssoService.getProvider(providerId);
+      redirectUri = provider.callbackUrl;
     }
 
-    const { tokens, profile } = await this.ssoService.handleCodeExchange(
-      providerId,
-      code,
-      redirectUri,
-    );
+    try {
+      const { tokens, profile } = await this.ssoService.handleCodeExchange(
+        providerId,
+        code,
+        redirectUri,
+      );
 
-    const userAgent = req.headers['user-agent'];
-    const ipAddress = req.ip;
+      const userAgent = req.headers['user-agent'];
+      const ipAddress = req.ip;
 
-    const authResult = await this.authService.loginOrRegisterSso(
-      profile,
-      tokens,
-      { userAgent, ipAddress },
-    );
+      const authResult = await this.authService.loginOrRegisterSso(
+        profile,
+        tokens,
+        { userAgent, ipAddress },
+      );
 
-    const frontendUrl = process.env.FRONTEND_URL;
-    if (frontendUrl) {
-      const targetUrl = new URL(`${frontendUrl}/auth/callback`);
-      targetUrl.searchParams.set('accessToken', authResult.accessToken);
-      targetUrl.searchParams.set('refreshToken', authResult.refreshToken);
-      targetUrl.searchParams.set('userId', authResult.user.id);
-      return res.redirect(targetUrl.toString());
+      if (frontendUrl) {
+        const targetUrl = new URL(`${frontendUrl}/auth/sso/${providerId}/callback`);
+        targetUrl.searchParams.set('accessToken', authResult.accessToken);
+        targetUrl.searchParams.set('refreshToken', authResult.refreshToken);
+        targetUrl.searchParams.set('userId', authResult.user.id);
+        targetUrl.searchParams.set('provider', providerId);
+        return res.redirect(targetUrl.toString());
+      }
+
+      return res.status(HttpStatus.OK).json(authResult);
+    } catch (err: any) {
+      if (frontendUrl) {
+        const errorUrl = new URL(`${frontendUrl}/auth/sso/${providerId}/callback`);
+        errorUrl.searchParams.set('error', 'oauth_exchange_failed');
+        errorUrl.searchParams.set(
+          'error_description',
+          err.message || 'Failed to exchange authorization code with SSO provider',
+        );
+        return res.redirect(errorUrl.toString());
+      }
+      throw err;
     }
-
-    return res.status(HttpStatus.OK).json(authResult);
   }
 
   /**
@@ -260,14 +300,27 @@ export class AuthController {
     @Body() dto: SsoExchangeDto,
     @Req() req: Request,
   ) {
+    let effectiveRedirectUri = dto.redirectUri;
     if (dto.state) {
-      this.ssoService.verifyState(dto.state);
+      try {
+        const stateData = this.ssoService.verifyState(dto.state);
+        if (!effectiveRedirectUri && stateData.redirectUri) {
+          effectiveRedirectUri = stateData.redirectUri;
+        }
+      } catch {
+        // Fall back to provider default if state could not be verified
+      }
+    }
+
+    if (!effectiveRedirectUri) {
+      const provider = this.ssoService.getProvider(providerId);
+      effectiveRedirectUri = provider.callbackUrl;
     }
 
     const { tokens, profile } = await this.ssoService.handleCodeExchange(
       providerId,
       dto.code,
-      dto.redirectUri,
+      effectiveRedirectUri,
     );
 
     const userAgent = req.headers['user-agent'];

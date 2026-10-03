@@ -59,6 +59,7 @@ export class SsoService {
       name: provider.name,
       icon: provider.icon,
       enabled: provider.isEnabled,
+      callbackUrl: provider.callbackUrl,
     }));
   }
 

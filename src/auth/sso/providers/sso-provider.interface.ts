@@ -24,6 +24,7 @@ export interface SsoProviderPublicInfo {
   name: string;
   icon: string;
   enabled: boolean;
+  callbackUrl?: string;
   authorizationUrl?: string;
 }
 
@@ -33,6 +34,7 @@ export interface ISsoProvider {
   readonly icon: string;
   readonly isEnabled: boolean;
   readonly clientId?: string;
+  readonly callbackUrl: string;
 
   getAuthorizationUrl(state: string, redirectUri?: string): string;
   exchangeCode(

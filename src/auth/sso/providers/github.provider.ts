@@ -28,7 +28,7 @@ export class GithubSsoProvider implements ISsoProvider {
     return process.env.GITHUB_CLIENT_SECRET || '';
   }
 
-  private get defaultCallbackUrl(): string {
+  get callbackUrl(): string {
     return (
       process.env.GITHUB_CALLBACK_URL ||
       'http://localhost:3000/auth/sso/github/callback'
@@ -36,7 +36,7 @@ export class GithubSsoProvider implements ISsoProvider {
   }
 
   getAuthorizationUrl(state: string, redirectUri?: string): string {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: callbackUrl,
@@ -50,7 +50,7 @@ export class GithubSsoProvider implements ISsoProvider {
     code: string,
     redirectUri?: string,
   ): Promise<{ tokens: SsoTokens; profile: SsoUserProfile }> {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
 
     const tokenResponse = await fetch(
       'https://github.com/login/oauth/access_token',

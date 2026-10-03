@@ -32,7 +32,7 @@ export class MicrosoftSsoProvider implements ISsoProvider {
     return process.env.MICROSOFT_TENANT_ID || 'common';
   }
 
-  private get defaultCallbackUrl(): string {
+  get callbackUrl(): string {
     return (
       process.env.MICROSOFT_CALLBACK_URL ||
       'http://localhost:3000/auth/sso/microsoft/callback'
@@ -40,7 +40,7 @@ export class MicrosoftSsoProvider implements ISsoProvider {
   }
 
   getAuthorizationUrl(state: string, redirectUri?: string): string {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
     const params = new URLSearchParams({
       client_id: this.clientId,
       response_type: 'code',
@@ -56,7 +56,7 @@ export class MicrosoftSsoProvider implements ISsoProvider {
     code: string,
     redirectUri?: string,
   ): Promise<{ tokens: SsoTokens; profile: SsoUserProfile }> {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
 
     const tokenResponse = await fetch(
       `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`,

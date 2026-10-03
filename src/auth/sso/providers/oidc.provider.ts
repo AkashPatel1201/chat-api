@@ -33,7 +33,7 @@ export class GenericOidcSsoProvider implements ISsoProvider {
     return process.env.OIDC_CLIENT_SECRET || '';
   }
 
-  private get defaultCallbackUrl(): string {
+  get callbackUrl(): string {
     return (
       process.env.OIDC_CALLBACK_URL ||
       'http://localhost:3000/auth/sso/oidc/callback'
@@ -41,7 +41,7 @@ export class GenericOidcSsoProvider implements ISsoProvider {
   }
 
   getAuthorizationUrl(state: string, redirectUri?: string): string {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
     const params = new URLSearchParams({
       client_id: this.clientId,
       response_type: 'code',
@@ -56,7 +56,7 @@ export class GenericOidcSsoProvider implements ISsoProvider {
     code: string,
     redirectUri?: string,
   ): Promise<{ tokens: SsoTokens; profile: SsoUserProfile }> {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
 
     const tokenResponse = await fetch(`${this.issuerUrl}/v1/token`, {
       method: 'POST',

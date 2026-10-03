@@ -29,7 +29,7 @@ export class GoogleSsoProvider implements ISsoProvider {
     return process.env.GOOGLE_CLIENT_SECRET || '';
   }
 
-  private get defaultCallbackUrl(): string {
+  get callbackUrl(): string {
     return (
       process.env.GOOGLE_CALLBACK_URL ||
       'http://localhost:3000/auth/sso/google/callback'
@@ -37,7 +37,7 @@ export class GoogleSsoProvider implements ISsoProvider {
   }
 
   getAuthorizationUrl(state: string, redirectUri?: string): string {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: callbackUrl,
@@ -54,7 +54,7 @@ export class GoogleSsoProvider implements ISsoProvider {
     code: string,
     redirectUri?: string,
   ): Promise<{ tokens: SsoTokens; profile: SsoUserProfile }> {
-    const callbackUrl = redirectUri || this.defaultCallbackUrl;
+    const callbackUrl = redirectUri || this.callbackUrl;
 
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
