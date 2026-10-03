@@ -21,6 +21,57 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
+## Multi-SSO & Prisma PostgreSQL API
+
+This service implements a modular **Multi-SSO (Single Sign-On)** authentication system powered by **Prisma 7** and **PostgreSQL**.
+
+### Supported Identity Providers
+- **Google** (OAuth 2.0 & OIDC + ID Token direct verification)
+- **GitHub** (OAuth 2.0 with email retrieval)
+- **Microsoft** / Azure AD (OAuth 2.0 & Graph API)
+- **Generic OIDC** (Okta, Keycloak, Auth0, etc.)
+
+### Interactive Swagger Documentation
+Once the server is running, explore and test all APIs interactively:
+- **Swagger UI**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
+- Includes JWT Bearer Token authorization, request/response models, and live endpoint testing.
+
+---
+
+### Database Setup (PostgreSQL with Prisma 7)
+Prisma 7 uses the new configuration format (`prisma.config.js`) and high-performance `@prisma/adapter-pg` driver adapter.
+
+```bash
+# Push schema to your PostgreSQL database
+npx prisma db push
+
+# Or run Prisma migrations
+npx prisma migrate dev --name init_sso_auth
+
+# Open Prisma Studio to view users and linked accounts
+npx prisma studio
+```
+
+---
+
+### Authentication API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/auth/sso/providers` | Lists all configured SSO providers and enabled status |
+| `GET` | `/auth/sso/:provider/url` | Generates authorization URL and CSRF state token |
+| `GET` | `/auth/sso/:provider/login` | Redirects browser directly to SSO provider |
+| `GET` | `/auth/sso/:provider/callback` | OAuth2 redirect callback handler (redirects to frontend with tokens) |
+| `POST` | `/auth/sso/:provider/exchange` | Code exchange for SPA/Mobile clients (`{ code, redirectUri, state }`) |
+| `POST` | `/auth/sso/:provider/verify-token` | Direct token verification (`{ token }` e.g. Google One-Tap ID token) |
+| `POST` | `/auth/sso/:provider/link` | Link an additional SSO provider to logged-in user (requires Bearer token) |
+| `DELETE` | `/auth/sso/:provider/unlink` | Unlink an SSO provider from logged-in user |
+| `POST` | `/auth/refresh` | Refresh access token using refresh token rotation |
+| `POST` | `/auth/logout` | Revoke active refresh token session |
+| `GET` | `/auth/me` | Fetch authenticated user profile and all linked accounts |
+
+---
+
 ## Description
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
