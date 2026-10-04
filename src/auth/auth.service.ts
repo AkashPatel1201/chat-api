@@ -28,6 +28,8 @@ export interface AuthResult extends AuthTokens {
     name: string | null;
     avatarUrl: string | null;
     role: string;
+    status?: string;
+    statusMessage?: string | null;
   };
 }
 
@@ -165,6 +167,8 @@ export class AuthService {
         name: user.name,
         avatarUrl: user.avatarUrl,
         role: user.role,
+        status: user.status,
+        statusMessage: user.statusMessage,
       },
     };
   }
@@ -288,6 +292,8 @@ export class AuthService {
         name: user.name,
         avatarUrl: user.avatarUrl,
         role: user.role,
+        status: user.status,
+        statusMessage: user.statusMessage,
       },
     };
   }
@@ -324,6 +330,8 @@ export class AuthService {
         name: user.name,
         avatarUrl: user.avatarUrl,
         role: user.role,
+        status: user.status,
+        statusMessage: user.statusMessage,
       },
     };
   }
@@ -420,6 +428,8 @@ export class AuthService {
         name: true,
         avatarUrl: true,
         role: true,
+        status: true,
+        statusMessage: true,
         isActive: true,
         emailVerified: true,
         createdAt: true,

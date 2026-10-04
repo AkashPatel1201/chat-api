@@ -24,19 +24,26 @@ enum SsoProvider {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  name          String?
-  avatarUrl     String?
-  role          Role      @default(USER)
-  isActive      Boolean   @default(true)
-  emailVerified Boolean   @default(false)
-  passwordHash  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 String          @id @default(uuid())
+  email              String          @unique
+  name               String?
+  avatarUrl          String?
+  role               Role            @default(USER)
+  status             String          @default("online")
+  statusMessage      String?
+  isActive           Boolean         @default(true)
+  emailVerified      Boolean         @default(false)
+  passwordHash       String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
+  accounts           Account[]
+  sessions           Session[]
+  createdChannels    Channel[]       @relation("ChannelCreator")
+  channelMemberships ChannelMember[]
+  sentMessages       Message[]       @relation("SentMessages")
+  receivedMessages   Message[]       @relation("ReceivedMessages")
+  reactions          Reaction[]
 
   @@map("users")
 }
@@ -78,4 +85,88 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+model Channel {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  description String?         @db.Text
+  isPrivate   Boolean         @default(false)
+  category    String          @default("text")
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  createdBy   User?           @relation("ChannelCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members     ChannelMember[]
+  messages    Message[]
+
+  @@map("channels")
+}
+
+model ChannelMember {
+  id         String   @id @default(uuid())
+  channelId  String
+  userId     String
+  role       String   @default("MEMBER")
+  joinedAt   DateTime @default(now())
+  lastReadAt DateTime @default(now())
+
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@map("channel_members")
+}
+
+model Message {
+  id          String       @id @default(uuid())
+  content     String       @db.Text
+  senderId    String
+  channelId   String?
+  recipientId String?
+  isEdited    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  sender      User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User?        @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  channel     Channel?     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  reactions   Reaction[]
+  attachments Attachment[]
+
+  @@index([channelId, createdAt])
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, senderId, createdAt])
+  @@map("messages")
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([userId])
+  @@map("reactions")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  messageId String
+  name      String
+  url       String   @db.Text
+  size      String?
+  type      String?
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
 }

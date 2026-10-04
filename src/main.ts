@@ -3,11 +3,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app.module.js';
+import { WsAdapter } from '@nestjs/platform-ws';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     instrument: ObserveInstrument,
   });
+
+  app.useWebSocketAdapter(new WsAdapter(app as any));
 
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3001',
@@ -41,6 +44,10 @@ async function bootstrap() {
       'JWT',
     )
     .addTag('Authentication & Multi-SSO', 'Multi-provider SSO and token management')
+    .addTag('Channels', 'Workspace channel creation, member management, and channel messages')
+    .addTag('Direct Messages', '1-on-1 direct message conversations and history')
+    .addTag('Users', 'User directory, profile lookup, and status updates')
+    .addTag('Messages', 'Emoji reactions and message deletion')
     .build();
 
   // Note: Cast `app as any` to avoid pnpm peer-dependency virtual store type mismatch with INestApplication
