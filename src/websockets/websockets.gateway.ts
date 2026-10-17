@@ -296,6 +296,194 @@ export class ChatGateway
     return { event: 'pong', data: { time: Date.now() } };
   }
 
+  /**
+   * Initiate a 1-on-1 voice or video call
+   */
+  @SubscribeMessage('call_user')
+  async handleCallUser(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      recipientId: string;
+      channelName: string;
+      callType: 'voice' | 'video';
+      callId: string;
+    },
+  ) {
+    if (!client.userId || !data?.recipientId) return;
+
+    this.logger.log(
+      `Call initiated by ${client.userName} (${client.userId}) to ${data.recipientId} [${data.callType}]`,
+    );
+
+    const callPayload = {
+      callId: data.callId || `call_${Date.now()}`,
+      callerId: client.userId,
+      callerName: client.userName || 'User',
+      callerEmail: client.userEmail,
+      recipientId: data.recipientId,
+      channelName: data.channelName,
+      callType: data.callType || 'voice',
+      timestamp: Date.now(),
+    };
+
+    this.broadcastToUser(data.recipientId, 'call_incoming', callPayload);
+
+    return {
+      event: 'call_ringing',
+      data: callPayload,
+    };
+  }
+
+  /**
+   * Recipient accepts call
+   */
+  @SubscribeMessage('call_accept')
+  handleCallAccept(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      callerId: string;
+      channelName: string;
+      callId: string;
+    },
+  ) {
+    if (!client.userId || !data?.callerId) return;
+
+    this.logger.log(`Call ${data.callId} accepted by ${client.userName}`);
+
+    const acceptPayload = {
+      callId: data.callId,
+      callerId: data.callerId,
+      recipientId: client.userId,
+      recipientName: client.userName,
+      channelName: data.channelName,
+    };
+
+    this.broadcastToUser(data.callerId, 'call_accepted', acceptPayload);
+
+    return {
+      event: 'call_connected',
+      data: acceptPayload,
+    };
+  }
+
+  /**
+   * Recipient rejects or declines call
+   */
+  @SubscribeMessage('call_reject')
+  handleCallReject(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      callerId: string;
+      callId: string;
+      reason?: string;
+    },
+  ) {
+    if (!client.userId || !data?.callerId) return;
+
+    this.logger.log(
+      `Call ${data.callId} rejected by ${client.userName}: ${data.reason || 'declined'}`,
+    );
+
+    this.broadcastToUser(data.callerId, 'call_rejected', {
+      callId: data.callId,
+      recipientId: client.userId,
+      reason: data.reason || 'declined',
+    });
+  }
+
+  /**
+   * Either party ends call or cancels outgoing call
+   */
+  @SubscribeMessage('call_end')
+  handleCallEnd(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      recipientId?: string;
+      callerId?: string;
+      channelId?: string;
+      channelName?: string;
+      callId?: string;
+    },
+  ) {
+    if (!client.userId) return;
+
+    this.logger.log(`Call ended by ${client.userName} (${client.userId})`);
+
+    const endPayload = {
+      callId: data.callId,
+      endedBy: client.userId,
+      endedByName: client.userName,
+      channelName: data.channelName,
+    };
+
+    if (data.recipientId && data.recipientId !== client.userId) {
+      this.broadcastToUser(data.recipientId, 'call_ended', endPayload);
+    }
+    if (data.callerId && data.callerId !== client.userId) {
+      this.broadcastToUser(data.callerId, 'call_ended', endPayload);
+    }
+    if (data.channelId) {
+      this.broadcastToChannel(data.channelId, 'channel_call_ended', endPayload);
+    }
+  }
+
+  /**
+   * Channel group call started / joined
+   */
+  @SubscribeMessage('channel_call_join')
+  handleChannelCallJoin(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      channelId: string;
+      channelName: string;
+      callType: 'voice' | 'video';
+    },
+  ) {
+    if (!client.userId || !data?.channelId) return;
+
+    this.broadcastToChannel(
+      data.channelId,
+      'channel_call_user_joined',
+      {
+        channelId: data.channelId,
+        channelName: data.channelName,
+        callType: data.callType,
+        user: {
+          id: client.userId,
+          name: client.userName,
+        },
+      },
+      client,
+    );
+  }
+
+  /**
+   * Channel group call left
+   */
+  @SubscribeMessage('channel_call_leave')
+  handleChannelCallLeave(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { channelId: string; channelName?: string },
+  ) {
+    if (!client.userId || !data?.channelId) return;
+
+    this.broadcastToChannel(
+      data.channelId,
+      'channel_call_user_left',
+      {
+        channelId: data.channelId,
+        channelName: data.channelName,
+        userId: client.userId,
+      },
+      client,
+    );
+  }
+
   // --- Public Broadcast Methods used by Services ---
 
   /**

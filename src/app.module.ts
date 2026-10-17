@@ -10,6 +10,7 @@ import { DirectMessagesModule } from './direct-messages/direct-messages.module.j
 import { UsersModule } from './users/users.module.js';
 import { MessagesModule } from './messages/messages.module.js';
 import { WebsocketsModule } from './websockets/websockets.module.js';
+import { CallsModule } from './calls/calls.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -29,6 +30,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DirectMessagesModule,
     UsersModule,
     MessagesModule,
+    CallsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
