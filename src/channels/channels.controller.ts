@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -22,6 +23,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { ChannelsService } from './channels.service.js';
 import { CreateChannelDto } from './dto/create-channel.dto.js';
 import { SendChannelMessageDto } from './dto/send-channel-message.dto.js';
+import { AddChannelMemberDto } from './dto/add-channel-member.dto.js';
 
 @ApiTags('Channels')
 @ApiBearerAuth('JWT')
@@ -109,5 +111,36 @@ export class ChannelsController {
     @Body() dto: SendChannelMessageDto,
   ) {
     return this.channelsService.sendMessage(userId, channelId, dto);
+  }
+
+  @Post(':id/members')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Add members to channel',
+    description: 'Adds one or more users to a channel. For private channels, caller must be a member.',
+  })
+  @ApiParam({ name: 'id', description: 'Channel ID or channel name' })
+  async addMembers(
+    @CurrentUser('id') userId: string,
+    @Param('id') channelId: string,
+    @Body() dto: AddChannelMemberDto,
+  ) {
+    return this.channelsService.addMembers(userId, channelId, dto);
+  }
+
+  @Delete(':id/members/:memberId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remove member from channel',
+    description: 'Removes a member from a channel. Caller must be OWNER or the member themselves.',
+  })
+  @ApiParam({ name: 'id', description: 'Channel ID or channel name' })
+  @ApiParam({ name: 'memberId', description: 'User ID of the member to remove' })
+  async removeMember(
+    @CurrentUser('id') userId: string,
+    @Param('id') channelId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.channelsService.removeMember(userId, channelId, memberId);
   }
 }
