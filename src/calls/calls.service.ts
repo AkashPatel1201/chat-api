@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import agoraPkg from 'agora-token';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -12,15 +12,8 @@ export interface AgoraTokenResponse {
   expireTime: number;
 }
 
-export class CreateCallHistoryDto {
-  callId!: string;
-  callType!: 'voice' | 'video';
-  status!: 'ended' | 'missed' | 'declined' | 'outgoing';
-  isDirect!: boolean;
-  recipientId?: string;
-  channelName?: string;
-  durationSeconds?: number;
-}
+export { CreateCallHistoryDto } from './dto/create-call-history.dto.js';
+import { CreateCallHistoryDto } from './dto/create-call-history.dto.js';
 
 export interface CallHistoryRecord {
   id: string;
@@ -123,39 +116,60 @@ export class CallsService {
    * Persist a call history record (upsert by callId to be idempotent)
    */
   async createCallHistory(
-    callerId: string,
+    userId: string,
     dto: CreateCallHistoryDto,
   ): Promise<CallHistoryRecord> {
-    // Upsert — same callId could be submitted twice (e.g., both parties end simultaneously)
-    const existing = await this.prisma.callHistory.findFirst({
-      where: { callId: dto.callId },
-    });
+    let callerId = userId;
+    let recipientId = dto.recipientId?.trim() || null;
 
-    if (existing) {
-      // Update with latest status/duration in case of re-submission
-      const updated = await this.prisma.callHistory.update({
-        where: { id: existing.id },
-        data: {
-          status: dto.status,
-          durationSeconds: dto.durationSeconds ?? existing.durationSeconds,
-        },
-        include: {
-          caller: { select: { id: true, name: true, email: true, avatarUrl: true } },
-          recipient: { select: { id: true, name: true, email: true, avatarUrl: true } },
-        },
-      });
-      return updated as CallHistoryRecord;
+    if (dto.isDirect) {
+      if (dto.callerId && (dto.callerId === userId || dto.recipientId === userId)) {
+        callerId = dto.callerId;
+        recipientId = dto.recipientId?.trim() || null;
+      } else if (!dto.callerId && dto.recipientId) {
+        callerId = userId;
+        recipientId = dto.recipientId.trim();
+      }
     }
 
-    const record = await this.prisma.callHistory.create({
-      data: {
+    // Verify caller and recipient exist in DB to prevent foreign-key violation crashes
+    if (callerId) {
+      const callerUser = await this.prisma.user.findUnique({
+        where: { id: callerId },
+        select: { id: true },
+      });
+      if (!callerUser) {
+        callerId = userId;
+      }
+    }
+
+    if (recipientId) {
+      const recipientUser = await this.prisma.user.findUnique({
+        where: { id: recipientId },
+        select: { id: true },
+      });
+      if (!recipientUser) {
+        this.logger.warn(`Recipient user ${recipientId} not found, setting recipientId to null`);
+        recipientId = null;
+      }
+    }
+
+    // Atomic Upsert by callId guarantees absolute idempotency even under concurrency
+    const record = await this.prisma.callHistory.upsert({
+      where: { callId: dto.callId },
+      update: {
+        status: dto.status,
+        durationSeconds: dto.durationSeconds ?? undefined,
+        ...(recipientId ? { recipientId } : {}),
+      },
+      create: {
         callId: dto.callId,
         callType: dto.callType,
         status: dto.status,
         isDirect: dto.isDirect,
         callerId,
-        recipientId: dto.recipientId ?? null,
-        channelName: dto.channelName ?? null,
+        recipientId,
+        channelName: dto.channelName?.trim() || null,
         durationSeconds: dto.durationSeconds ?? null,
       },
       include: {
@@ -165,7 +179,7 @@ export class CallsService {
     });
 
     this.logger.log(
-      `Call history saved: callId=${dto.callId} status=${dto.status} caller=${callerId}`,
+      `Call history saved: callId=${dto.callId} status=${dto.status} caller=${callerId} recipient=${recipientId}`,
     );
 
     return record as CallHistoryRecord;

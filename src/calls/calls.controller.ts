@@ -17,7 +17,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { CallsService, CreateCallHistoryDto } from './calls.service.js';
+import { CallsService } from './calls.service.js';
+import { CreateCallHistoryDto } from './dto/create-call-history.dto.js';
 
 @ApiTags('Calls')
 @Controller('calls')

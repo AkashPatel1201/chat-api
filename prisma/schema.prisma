@@ -176,7 +176,7 @@ model Attachment {
 /// Persisted record of every audio/video call event
 model CallHistory {
   id              String   @id @default(uuid())
-  callId          String   /// Client-generated call ID (idempotency)
+  callId          String   @unique /// Client-generated call ID (idempotency)
   callType        String   /// "voice" | "video"
   status          String   /// "ended" | "missed" | "declined" | "outgoing"
   isDirect        Boolean  @default(true)
