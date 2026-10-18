@@ -44,6 +44,8 @@ model User {
   sentMessages       Message[]       @relation("SentMessages")
   receivedMessages   Message[]       @relation("ReceivedMessages")
   reactions          Reaction[]
+  callerHistory      CallHistory[]   @relation("CallerHistory")
+  recipientHistory   CallHistory[]   @relation("RecipientHistory")
 
   @@map("users")
 }
@@ -169,4 +171,30 @@ model Attachment {
   message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@map("attachments")
+}
+
+/// Persisted record of every audio/video call event
+model CallHistory {
+  id              String   @id @default(uuid())
+  callId          String   /// Client-generated call ID (idempotency)
+  callType        String   /// "voice" | "video"
+  status          String   /// "ended" | "missed" | "declined" | "outgoing"
+  isDirect        Boolean  @default(true)
+  /// The user who initiated the call
+  callerId        String
+  /// The other user in a DM call (null for channel calls)
+  recipientId     String?
+  /// Channel name for group calls
+  channelName     String?
+  /// Call duration in seconds (null when the call never connected)
+  durationSeconds Int?
+  createdAt       DateTime @default(now())
+
+  caller          User     @relation("CallerHistory",    fields: [callerId],    references: [id], onDelete: Cascade)
+  recipient       User?    @relation("RecipientHistory", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([callerId])
+  @@index([recipientId])
+  @@index([callerId, recipientId, createdAt])
+  @@map("call_history")
 }
